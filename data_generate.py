@@ -6,10 +6,10 @@ import pickle
 
 window_length = 0.032
 voca_step = 0.010
-background_step = 0.005
+background_step = 0.002
 max_length = 1600000
 
-
+'''
 sign = False
 
 with open("output.list") as files:
@@ -42,7 +42,7 @@ for audio_file in file_list:
 					
 numpy.save("posi/data"+str(num), posi_data)
 del posi_data
-
+'''
 (rate, audio) = wav.read("bal.wav")
 nega_data = mfcc.calcMFCC_delta_delta(signal=audio, samplerate=rate, win_length=window_length, win_step=background_step)
 
