@@ -32,13 +32,13 @@ idx = [i for i in range(train_data.shape[0])]
 
 # Bind an executor of a given batch size to do forward pass and get gradients
 input_shapes = {"data": (batch_size, 39), "softmax_label": (batch_size, )}
-executor = cost_classification.simple_bind(ctx=mx.gpu(0),
+executor = cost_classification.simple_bind(ctx=mx.cpu(),
                                            grad_req='write',
                                            **input_shapes)
 # The above executor computes gradients. When evaluating test data we don't need this.
 # We want this executor to share weights with the above one, so we will use bind
 # (instead of simple_bind) and use the other executor's arguments.
-executor_test = cost_classification.bind(ctx=mx.gpu(0),
+executor_test = cost_classification.bind(ctx=mx.cpu(),
                                          grad_req='null',
                                          args=executor.arg_arrays)
 
