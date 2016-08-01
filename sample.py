@@ -1,9 +1,5 @@
 import mxnet as mx
 import numpy as np
-
-posi_path = "posi/data0.npy"
-nega_path = "nega/data0.npy"
-
 # First, the symbol needs to be defined
 data = mx.sym.Variable("data") # input features, mxnet commonly calls this 'data'
 label = mx.sym.Variable("softmax_label")
@@ -20,21 +16,9 @@ l2 = mx.sym.FullyConnected(data=a1, num_hidden=10, name="layer2")
 # Create some loss symbol
 cost_classification = mx.sym.SoftmaxOutput(data=l2, label=label)
 
-# Using skdata to get mnist data. This is for portability. Can sub in any data loading you like.
-
-posi_data = np.load(posi_path)
-nega_data = np.load(nega_path)
-
-print posi_data.shape
-print nega_data.shape
-
-train_data = np.vstack((posi_data, nega_data))
-label = np.hstack(8*(np.ones(posi_data.shape[0]), np.zeros(nega_data.shape[0])))
-batch_size = train_data.shape[0]
-idx = [i for i in range(train_data.shape[0])]
-
 # Bind an executor of a given batch size to do forward pass and get gradients
-input_shapes = {"data": (batch_size, 39), "softmax_label": (batch_size, )}
+batch_size = 128
+input_shapes = {"data": (batch_size, 28*28), "softmax_label": (batch_size, )}
 executor = cost_classification.simple_bind(ctx=mx.cpu(),
                                            grad_req='write',
                                            **input_shapes)
@@ -49,16 +33,24 @@ executor_test = cost_classification.bind(ctx=mx.cpu(),
 for r in executor.arg_arrays:
     r[:] = np.random.randn(*r.shape)*0.02
 
+# Using skdata to get mnist data. This is for portability. Can sub in any data loading you like.
+from skdata.mnist.views import OfficialVectorClassification
+
+data = OfficialVectorClassification()
+trIdx = data.sel_idxs[:]
+teIdx = data.val_idxs[:]
 
 for epoch in range(10):
   print "Starting epoch", epoch
-  np.random.shuffle(idx)
+  np.random.shuffle(trIdx)
 
-  for x in range(0, len(idx), batch_size):
+  #for x in range(0, len(trIdx), batch_size):
+  for x in range(0, len(trIdx), len(trIdx)):
     # extract a batch from mnist
-    batchX = train_data[idx[x:x+batch_size]]
-    batchY = label[idx[x:x+batch_size]]
-
+    batchX = data.all_vectors[trIdx[x:x+batch_size]]
+    batchY = data.all_labels[trIdx[x:x+batch_size]]
+	
+    
     # our executor was bound to 128 size. Throw out non matching batches.
     if batchX.shape[0] != batch_size:
         continue
@@ -76,19 +68,22 @@ for epoch in range(10):
         if pname in ['data', 'softmax_label']:
             continue
         # what ever fancy update to modify the parameters
-        W[:] = W - G * .0001
+        W[:] = W - G * .001
 
   # Evaluation at each epoch
   num_correct = 0
   num_total = 0
-  for x in range(0, len(idx), batch_size):
-    batchX = train_data[idx[x:x+batch_size]]
-    batchY = label[idx[x:x+batch_size]]
+  #for x in range(0, len(teIdx), batch_size):
+  for x in range(0, len(teIdx), len(teIdx)):
+    batchX = data.all_vectors[teIdx[x:x+batch_size]]
+    batchY = data.all_labels[teIdx[x:x+batch_size]]
     if batchX.shape[0] != batch_size:
         continue
+	
     # use the test executor as we don't care about gradients
     executor_test.arg_dict['data'][:] = batchX / 255.
     executor_test.forward()
+    #print executor_test.outputs[0].asnumpy()
     num_correct += sum(batchY == np.argmax(executor_test.outputs[0].asnumpy(), axis=1))
     num_total += len(batchY)
   print "Accuracy thus far", num_correct / float(num_total)
