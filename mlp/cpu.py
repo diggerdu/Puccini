@@ -1,8 +1,8 @@
 import mxnet as mx
 import numpy as np
 
-posi_path = "posi/data0.npy"
-nega_path = "nega/data0.npy"
+posi_path = "../posi/data0.npy"
+nega_path = "../nega/data0.npy"
 
 # First, the symbol needs to be defined
 data = mx.sym.Variable("data") # input features, mxnet commonly calls this 'data'
@@ -35,7 +35,7 @@ idx = [i for i in range(train_data.shape[0])]
 
 
 # Bind an executor of a given batch size to do forward pass and get gradients
-input_shapes = {"data": (batch_size, 39), "softmax_label": (batch_size, )}
+input_shapes = {"data": (batch_size, 53), "softmax_label": (batch_size, )}
 executor = cost_classification.simple_bind(ctx=mx.cpu(),
                                            grad_req='write',
                                            **input_shapes)
@@ -61,7 +61,6 @@ for epoch in range(10000):
     # extract a batch from mnist
     batchX = train_data[idx[x:x+batch_size]]
     batchY = label[idx[x:x+batch_size]]
-
     # our executor was bound to 128 size. Throw out non matching batches.
     if batchX.shape[0] != batch_size:
         continue
