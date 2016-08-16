@@ -24,8 +24,9 @@ cost_classification = mx.sym.SoftmaxOutput(data=l2, label=label)
 
 posi_data = np.load(posi_path)
 nega_data = np.load(nega_path)
-
+print posi_data[0]
 #print posi_data
+n
 #print nega_data
 
 train_data = np.vstack((posi_data, nega_data)) / 10.
@@ -35,7 +36,7 @@ idx = [i for i in range(train_data.shape[0])]
 
 
 # Bind an executor of a given batch size to do forward pass and get gradients
-input_shapes = {"data": (batch_size, 39), "softmax_label": (batch_size, )}
+input_shapes = {"data": (batch_size, 53), "softmax_label": (batch_size, )}
 executor = cost_classification.simple_bind(ctx=mx.cpu(),
                                            grad_req='write',
                                            **input_shapes)
@@ -53,6 +54,7 @@ for r in executor.arg_arrays:
 #    print np.zeros(r.shape)
 
 
+learning_rate = 0.0002
 for epoch in range(10000):
   print "Starting epoch", epoch
   np.random.shuffle(idx)
@@ -79,7 +81,7 @@ for epoch in range(10000):
         if pname in ['data', 'softmax_label']:
             continue
         # what ever fancy update to modify the parameters
-        W[:] = W - G * 0.0001
+        W[:] = W - G * learning_rate
 
   # Evaluation at each epoch
   num_correct = 0
@@ -96,3 +98,5 @@ for epoch in range(10000):
     num_correct += sum(batchY == np.argmax(executor_test.outputs[0].asnumpy(), axis=1))
     num_total += len(batchY)
   print "Accuracy thus far", num_correct / float(num_total)
+  if num_correct / float(num_total) > 87:
+	learning_rate = 0.00001

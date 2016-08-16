@@ -19,7 +19,6 @@ files.close()
 num = 0
 posi_data = numpy.ones((1, 1))
 for audio_file in file_list:
-	print audio_file
 	(rate, audio_ori) = wav.read(audio_file.rstrip(".raw\n")+".wav")
 	with open(audio_file.rstrip("nn.raw\n")+".wrd") as files:
 		seg_info = files.readlines()
@@ -27,7 +26,7 @@ for audio_file in file_list:
 	for info in seg_info:
 		[start, end] = info.split()[0:2]
 		#shave head and tail
-		audio = audio_ori[int(start) + window_length:int(end) - window_length]
+		audio = audio_ori[int(start) + int(window_length * rate):int(end) - int(window_length * rate)]
 		for idx in range(0, audio.shape[0] - int(window_length * rate), int(voca_step * rate)):
 			chip = audio[idx:idx + int(window_length * rate)]
 			(l, _, _) = lpc(chip, lpc_order)
@@ -37,9 +36,10 @@ for audio_file in file_list:
 				posi_data = cnt_data
 			else:
 				posi_data = numpy.row_stack((posi_data, cnt_data))
-		print posi_data.shape
 		if posi_data.shape[0] > max_length:
 			numpy.save("posi/data"+str(num), posi_data)
+			print "posi/data"+str(num)
+			print audio_file
 			del posi_data
 			num = num + 1
 			posi_data = numpy.ones((1,1))
