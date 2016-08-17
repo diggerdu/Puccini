@@ -8,6 +8,8 @@ sw_valid = open("sort.valid.txt", "w")
 
 for i in range(1000000):
 	seq = " ".join([vocab[random.randint(0, len(vocab) - 1)] for j in range(5)])
+	print type(seq)
+	print seq
 	k = i % 50
 	if k == 0:
 		sw_test.write(seq + "\n")
