@@ -1,8 +1,9 @@
+import os
 import mxnet as mx
 import numpy as np
 
-posi_path = "../posi/data0.npy"
-nega_path = "../nega/data0.npy"
+posi_path = "../posi"
+nega_path = "../nega"
 
 # First, the symbol needs to be defined
 data = mx.sym.Variable("data") # input features, mxnet commonly calls this 'data'
@@ -24,8 +25,22 @@ cost_classification = mx.sym.LogisticRegressionOutput(data=l3, label=mlabel)
 
 # Using skdata to get mnist data. This is for portability. Can sub in any data loading you like.
 
-posi_data = np.load(posi_path)
-nega_data = np.load(nega_path)
+
+posi_data = np.zeros((1,))
+for file in os.listdir(posi_path):
+	tmp = np.load(posi_path + '/' + file)
+	if posi_data.shape[0] == 1:
+		posi_data= tmp
+	else:
+		posi_data = np.vstack((posi_data, tmp))
+
+nega_data = np.zeros((1,))
+for file in os.listdir(nega_path):
+	tmp = np.load(nega_path + '/' + file)
+	if nega_data.shape[0] == 1:
+		nega_data = tmp
+	else:
+		nega_data = np.vstack((nega_data, tmp))
 
 #print posi_data
 #print nega_data
@@ -38,13 +53,13 @@ idx = [i for i in range(train_data.shape[0])]
 
 # Bind an executor of a given batch size to do forward pass and get gradients
 input_shapes = {"data": (batch_size, 53), "softmax_label": (batch_size, )}
-executor = cost_classification.simple_bind(ctx=mx.cpu(),
+executor = cost_classification.simple_bind(ctx=mx.gpu(0),
                                            grad_req='write',
                                            **input_shapes)
 # The above executor computes gradients. When evaluating test data we don't need this.
 # We want this executor to share weights with the above one, so we will use bind
 # (instead of simple_bind) and use the other executor's arguments.
-executor_test = cost_classification.bind(ctx=mx.cpu(),
+executor_test = cost_classification.bind(ctx=mx.gpu(0),
                                          grad_req='null',
                                          args=executor.arg_arrays)
 
@@ -55,6 +70,7 @@ for r in executor.arg_arrays:
 #    print np.zeros(r.shape)
 
 
+best = 0
 for epoch in range(10000):
   print "Starting epoch", epoch
   np.random.shuffle(idx)
@@ -87,7 +103,8 @@ for epoch in range(10000):
   num_correct = 0
   num_total = 0
   threshold = 0.5
-  best = 0
+  pred_all = np.array([])
+  real_all = np.array([])
   for x in range(0, len(idx), batch_size):
     batchX = train_data[idx[x:x+batch_size]]
     batchY = label[idx[x:x+batch_size]]
@@ -97,14 +114,24 @@ for epoch in range(10000):
     executor_test.arg_dict['data'][:] = batchX
     executor_test.forward()
     pred = executor_test.outputs[0].asnumpy().reshape(batchY.shape)
+    if best > 0.999:
+        pred_all = np.hstack((pred_all, pred))
+        real_all = np.hstack((real_all, batchY))
     for i in range(pred.shape[0]):
-       if pred[i] > threshold:
-          pred[i] = 1
-       else:
-          pred[i] = 0
+        if pred[i] > threshold:
+            pred[i] = 1
+        else:
+            pred[i] = 0
     num_correct += sum(batchY == pred)
     num_total += len(batchY)
+  if best > 0.999:
+    print "ok"
+    np.save("real", real_all)
+    np.save("pred", pred_all)
+    break
+	
   print "Accuracy thus far", num_correct * 1.0 / num_total 
   if num_correct * 1.0 / num_total > best:
-    best = num_correct * 1.0 / num_total
+     best = num_correct * 1.0 / num_total
   print "Best thus far", best
+
