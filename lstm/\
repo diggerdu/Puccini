@@ -18,7 +18,7 @@ n_prev = 3    # timesteps
 n_sub = 3
 n_steps = n_prev + 1 + n_sub
 n_hidden = 64     # hidden layer num of features
-n_classes = 1   # oral / no oral
+n_classes = 2   # oral / no oral
 
 # tf Graph input
 x = tf.placeholder("float", [None, n_prev + 1 + n_sub, n_input])
@@ -53,18 +53,18 @@ def RNN(x, weights, biases):
 
 
     # Linear activation, using rnn inner loop last output
-    return tf.sigmoid(tf.matmul(outputs[-1], weights['out']) + biases['out'])
+    return tf.matmul(outputs[-1], weights['out']) + biases['out']
 
 
 pred = RNN(x, weights, biases)
 
 # Define loss and optimizer
-cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(pred, y))
+cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(pred, y))
 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
 
 # Evaluate model
-#correct_pred = tf.equal(tf.argmax(pred, 1), tf.argmax(y, 1))
-#accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+correct_pred = tf.equal(tf.argmax(pred, 1), tf.argmax(y, 1))
+accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
 
 # Initializing the variables
 init = tf.initialize_all_variables()
@@ -77,25 +77,25 @@ with tf.Session() as sess:
     # Keep training until reach max iterations
     while step * batch_size < training_iters:
         batch_x, batch_y_1d = input_data.next_batch(batch_size, n_prev, n_sub)
-        batch_y_1d = batch_y_1d.reshape((batch_size, 1))
-        sess.run(optimizer, feed_dict={x: batch_x, y: batch_y_1d})
-        if step % display_step == 0:    
-            pred_data = sess.run(pred, feed_dict={x: batch_x, y: batch_y_1d})
-            prob = np.where(pred_data>0.5,1,0)
-            right = sum(prob == batch_y_1d)
-            print (right)
-            if right > 2034:
-                batch_x_posi, batch_y_posi = input_data.next_batch_posi(18500, n_prev, n_sub)
-                batch_x_nega, batch_y_nega = input_data.next_batch_nega(18500, n_prev, n_sub)
-                batch_x = np.vstack((batch_x_posi, batch_x_nega))
-                batch_y = np.hstack((batch_y_posi, batch_y_nega)) 
-                batch_y = batch_y.reshape((37000, 1))
-                pred_data = sess.run(pred, feed_dict={x: batch_x, y: batch_y})
-                np.save("prob.npy", pred_data)
-                np.save("real.npy", batch_y)
+        # Reshape data to get 28 seq of 28 elements
+        # batch_x = batch_x.reshape((batch_size, n_steps, n_input))
+        # reshape
+        batch_y = np.zeros((batch_size, n_classes))
+        for idx, label in enumerate(batch_y_1d):
+            batch_y[idx][label] = 1
+        # Run optimization op (backprop)
+        sess.run(optimizer, feed_dict={x: batch_x, y: batch_y})
+        if step % display_step == 0:
+            # Calculate batch accuracy
+            acc = sess.run(accuracy, feed_dict={x: batch_x, y: batch_y})
+            # Calculate batch loss
+            loss = sess.run(cost, feed_dict={x: batch_x, y: batch_y})
+            print("Iter " + str(step*batch_size) + ", Minibatch Loss= " + \
+                  "{:.6f}".format(loss) + ", Training Accuracy= " + \
+                  "{:.5f}".format(acc))
         step += 1
     print("Optimization Finished!")
-    '''
+
     # Calculate accuracy for 128 mnist test images
     test_len = 128
     test_label = np.zeros((test_len, n_classes))
@@ -104,4 +104,4 @@ with tf.Session() as sess:
         test_label[idx][label] = 1
     print("Testing Accuracy:", \
         sess.run(accuracy, feed_dict={x: test_data, y: test_label}))
-    '''
+

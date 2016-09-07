@@ -1,3 +1,7 @@
 timit
 posi
 nega
+prob.npy
+pred.npy
+real.npy
+data_clean_8k.tar
